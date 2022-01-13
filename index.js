@@ -9,6 +9,7 @@ const axios = require('axios').default;
 
 // TODO Add usage and example
 const argv = yargs(hideBin(process.argv))
+.usage('$0 -r resourceFolder -b backup -d')
 .options('res', {
     alias: 'r',
     describe: 'Resource folder path',
@@ -27,8 +28,8 @@ const argv = yargs(hideBin(process.argv))
     alias: 'l',
     describe: 'Obfuscation level',
     type: 'string',
-    coerce: arg => ['e3', 'e2', 'e'].includes(arg) ? arg : undefined,
-    default: 'e3'
+    coerce: arg => ['1', '2', '3'].includes(arg) ? arg : undefined,
+    default: '3'
 })
 .options('del', {
     alias: 'd',
@@ -56,11 +57,10 @@ getDirectories(argv.res, (err, res) => {
             fse.copySync(argv.res, backupFolder)
             spinner.succeed()
         }
-
         spinner = ora('Compiling files').start(); //TODO rollback everything on error, if backup
         Promise.all(files.map(file => {
-            return fs.promises.readFile(file).then((err, data) => {
-                return axios.post('https://luac.mtasa.com/?compile=1&debug=0&obfuscate=3', data)
+            return fs.promises.readFile(file).then((data) => {
+                return axios.post(`https://luac.mtasa.com/?compile=1&debug=0&obfuscate=${argv.level}`, data)
                 .then(function (response) {
                     return fs.promises.writeFile(file + 'c', response.data).then(() => {
                         if (argv.backup && argv.del) fse.removeSync(file)
@@ -68,7 +68,6 @@ getDirectories(argv.res, (err, res) => {
                 })
             })
         })).then(() => spinner.succeed())
-
 
         const metaSpinner = ora('Editing meta.xml').start();
         const meta = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && element.includes('meta.xml'))[0]
