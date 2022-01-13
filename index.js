@@ -1,7 +1,6 @@
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
 const fs = require('fs');
-const fsPromises = require('fs').promises;
 const fse = require('fs-extra')
 const path = require('path');
 const ora = require('ora');
@@ -39,7 +38,7 @@ const argv = yargs(hideBin(process.argv))
 .demandOption(['res'], "Incorrect or no resource folder selected!")
 .argv;
 
-let getDirectories = (src, callback) => {
+const getDirectories = (src, callback) => {
     glob(src + '/**/*', callback);
 }
 
@@ -48,7 +47,7 @@ getDirectories(argv.res, (err, res) => {
     if (err) {
         spinner.fail('Something went wrong!')
     } else {
-        let files = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && path.extname(element) == '.lua')
+        const files = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && path.extname(element) == '.lua')
         spinner.succeed()
 
         if (argv.backup) {
@@ -58,27 +57,23 @@ getDirectories(argv.res, (err, res) => {
             spinner.succeed()
         }
 
-        spinner = ora('Compiling files').start();
-
-        //TODO rollback everything on error, if backup
-
-        files.reduce(function(promise, file) {
-            return promise.then(function() {
-                return fsPromises.readFile(file)
-                .then(data => {
-                    return axios.post('https://luac.mtasa.com/?compile=1&debug=0&obfuscate=3', data)
-                }).then(response => {
-                    return fsPromises.writeFile(file + 'c', response.data)
-                }).then(() => {
-                    if (argv.backup && argv.del) return fse.remove(file)
+        spinner = ora('Compiling files').start(); //TODO rollback everything on error, if backup
+        Promise.all(files.map(file => {
+            return fs.promises.readFile(file).then((err, data) => {
+                return axios.post('https://luac.mtasa.com/?compile=1&debug=0&obfuscate=3', data)
+                .then(function (response) {
+                    return fs.promises.writeFile(file + 'c', response.data).then(() => {
+                        if (argv.backup && argv.del) fse.removeSync(file)
+                    })
                 })
-            });
-        }, Promise.resolve()).then(()=>spinner.succeed())
+            })
+        })).then(() => spinner.succeed())
+
 
         const metaSpinner = ora('Editing meta.xml').start();
         const meta = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && element.includes('meta.xml'))[0]
-        let data = fsPromises.readFile(meta).then(data => {
-            fsPromises.writeFile(meta, data.toString('utf8').replaceAll('.lua', '.luac'), { flag: 'w+' }).then(() => {
+        let data = fs.promises.readFile(meta).then(data => {
+            fs.promises.writeFile(meta, data.toString('utf8').replaceAll('.lua', '.luac'), { flag: 'w+' }).then(() => {
                 metaSpinner.succeed()
             })
         })
