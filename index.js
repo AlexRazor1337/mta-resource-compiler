@@ -1,6 +1,7 @@
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
 const fs = require('fs');
+const fsPromises = require('fs').promises;
 const fse = require('fs-extra')
 const path = require('path');
 const ora = require('ora');
@@ -35,7 +36,7 @@ const argv = yargs(hideBin(process.argv))
     describe: 'Delete original files, works only with the backup flag',
     type: 'boolean'
 })
-.demandOption(['res'], console.error("Incorrect or no resource folder selected!"))
+.demandOption(['res'], "Incorrect or no resource folder selected!")
 .argv;
 
 let getDirectories = (src, callback) => {
@@ -58,27 +59,26 @@ getDirectories(argv.res, (err, res) => {
         }
 
         spinner = ora('Compiling files').start();
-        files.forEach(file => {
-            fs.readFile(file, (err, data) => {
-                axios.post('https://luac.mtasa.com/?compile=1&debug=0&obfuscate=3', data)
-                .then(function (response) {
-                    fs.writeFile(file + 'c', response.data, () => {
-                        if (argv.backup && argv.del) {
-                            fse.removeSync(file)
-                        }
-                    })
-                }) //TODO rollback everything on error, if backup
-            })
-        });
-        spinner.succeed()
 
-        if (argv.meta) {
-            spinner = ora('Editing meta.xml').start();
-            const meta = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && element.includes('meta.xml'))[0]
-            let data = fs.readFileSync(meta).toString('utf8').replace('.lua', '.luac')
+        //TODO rollback everything on error, if backup
+        Promise.all(files.map(file => {
+            fsPromises.readFile(file)
+            .then(data => {
+                return axios.post('https://luac.mtasa.com/?compile=1&debug=0&obfuscate=3', data)
+            }).then(response => {
+                return fsPromises.writeFile(file + 'c', response.data)
+            }).then(() => {
+                console.log('tete');
+                if (argv.backup && argv.del) return fse.remove(file)
+            }).then(()=>{})
+        })).then(spinner.succeed())
 
-            fs.writeFileSync(meta, data, { flag: 'w+' })
-            spinner.succeed()
-        }
+
+        let metaSpinner = ora('Editing meta.xml').start();
+        const meta = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && element.includes('meta.xml'))[0]
+        let data = fs.readFileSync(meta).toString('utf8').replaceAll('.lua', '.luac')
+
+        fs.writeFileSync(meta, data, { flag: 'w+' })
+        metaSpinner.succeed()
     }
 })
