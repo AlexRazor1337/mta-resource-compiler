@@ -61,24 +61,26 @@ getDirectories(argv.res, (err, res) => {
         spinner = ora('Compiling files').start();
 
         //TODO rollback everything on error, if backup
-        Promise.all(files.map(file => {
-            fsPromises.readFile(file)
-            .then(data => {
-                return axios.post('https://luac.mtasa.com/?compile=1&debug=0&obfuscate=3', data)
-            }).then(response => {
-                return fsPromises.writeFile(file + 'c', response.data)
-            }).then(() => {
-                console.log('tete');
-                if (argv.backup && argv.del) return fse.remove(file)
-            }).then(()=>{})
-        })).then(spinner.succeed())
 
+        files.reduce(function(promise, file) {
+            return promise.then(function() {
+                return fsPromises.readFile(file)
+                .then(data => {
+                    return axios.post('https://luac.mtasa.com/?compile=1&debug=0&obfuscate=3', data)
+                }).then(response => {
+                    return fsPromises.writeFile(file + 'c', response.data)
+                }).then(() => {
+                    if (argv.backup && argv.del) return fse.remove(file)
+                })
+            });
+        }, Promise.resolve()).then(()=>spinner.succeed())
 
-        let metaSpinner = ora('Editing meta.xml').start();
+        const metaSpinner = ora('Editing meta.xml').start();
         const meta = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && element.includes('meta.xml'))[0]
-        let data = fs.readFileSync(meta).toString('utf8').replaceAll('.lua', '.luac')
-
-        fs.writeFileSync(meta, data, { flag: 'w+' })
-        metaSpinner.succeed()
+        let data = fsPromises.readFile(meta).then(data => {
+            fsPromises.writeFile(meta, data.toString('utf8').replaceAll('.lua', '.luac'), { flag: 'w+' }).then(() => {
+                metaSpinner.succeed()
+            })
+        })
     }
 })
