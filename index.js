@@ -7,9 +7,8 @@ const ora = require('ora');
 const glob = require('glob');
 const axios = require('axios').default;
 
-// TODO Add usage and example
 const argv = yargs(hideBin(process.argv))
-.usage('$0 -r resourceFolder -b backup -d')
+.usage('node $0 -r resourceFolder -b backup -d')
 .options('res', {
     alias: 'r',
     describe: 'Resource folder path',
