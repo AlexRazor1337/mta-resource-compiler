@@ -1,0 +1,27 @@
+{
+  "name": "mta-resource-compiler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlexRazor1337/mta-resource-compiler.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AlexRazor1337/mta-resource-compiler/issues"
+  },
+  "homepage": "https://github.com/AlexRazor1337/mta-resource-compiler#readme",
+  "dependencies": {
+    "axios": "^0.24.0",
+    "fs-extra": "^10.0.0",
+    "glob": "^7.2.0",
+    "ora": "^5.4.1",
+    "yargs": "^17.3.1"
+  }
+}
