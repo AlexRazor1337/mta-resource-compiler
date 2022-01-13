@@ -4,8 +4,8 @@ const fs = require('fs');
 const fse = require('fs-extra')
 const path = require('path');
 const ora = require('ora');
-const glob = require("glob");
-const child_process = require('child_process');
+const glob = require('glob');
+const axios = require('axios').default;
 
 // TODO Add usage and example
 const argv = yargs(hideBin(process.argv))
@@ -44,7 +44,6 @@ let getDirectories = (src, callback) => {
 
 let spinner = ora('Getting files list').start();
 getDirectories(argv.res, (err, res) => {
-    console.log(res);
     if (err) {
         spinner.fail('Something went wrong!')
     } else {
@@ -60,10 +59,15 @@ getDirectories(argv.res, (err, res) => {
 
         spinner = ora('Compiling files').start();
         files.forEach(file => {
-            child_process.execFile('luac_mta', ["-" + argv.level, "-o " + file + "c", file], () => {
-                if (argv.backup && argv.del) {
-                    fse.removeSync(file)
-                }
+            fs.readFile(file, (err, data) => {
+                axios.post('https://luac.mtasa.com/?compile=1&debug=0&obfuscate=3', data)
+                .then(function (response) {
+                    fs.writeFile(file + 'c', response.data, () => {
+                        if (argv.backup && argv.del) {
+                            fse.removeSync(file)
+                        }
+                    })
+                }) //TODO rollback everything on error, if backup
             })
         });
         spinner.succeed()
