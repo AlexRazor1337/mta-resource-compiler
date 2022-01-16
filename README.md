@@ -6,6 +6,11 @@ This is the ideological successor to the [MTA Resource Tool](https://github.com/
 
 # Usage
 
+First, install all packets.
+```
+npm install
+```
+
 Run script without any arguments and it will list all options and usage example.
 ```
 node index.js
