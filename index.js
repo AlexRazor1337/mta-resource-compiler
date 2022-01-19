@@ -56,6 +56,7 @@ getDirectories(argv.res, (err, res) => {
             fse.copySync(argv.res, backupFolder)
             spinner.succeed()
         }
+
         spinner = ora('Compiling files').start(); //TODO rollback everything on error, if backup
         Promise.all(files.map(file => {
             return fs.promises.readFile(file).then((data) => {
@@ -71,7 +72,7 @@ getDirectories(argv.res, (err, res) => {
         const metaSpinner = ora('Editing meta.xml').start();
         const meta = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && element.includes('meta.xml'))[0]
         let data = fs.promises.readFile(meta).then(data => {
-            fs.promises.writeFile(meta, data.toString('utf8').replaceAll('.lua', '.luac'), { flag: 'w+' }).then(() => {
+            fs.promises.writeFile(meta, data.toString('utf8').replace(/.lua/g, '.luac'), { flag: 'w+' }).then(() => {
                 metaSpinner.succeed()
             })
         })
