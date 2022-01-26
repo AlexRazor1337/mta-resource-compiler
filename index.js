@@ -4,7 +4,7 @@ const fs = require('fs');
 const fse = require('fs-extra')
 const path = require('path');
 const ora = require('ora');
-const glob = require('glob');
+const fg = require('fast-glob');
 const axios = require('axios').default;
 
 const argv = yargs(hideBin(process.argv))
@@ -39,7 +39,11 @@ const argv = yargs(hideBin(process.argv))
 .argv;
 
 const getDirectories = (src, callback) => {
-    glob(src + '/**/*', callback);
+    const resourcePath = path.join(src, '/**/*').replace(/\\/g, '/')
+    const dirs = fg.sync([resourcePath]);
+
+    if (dirs.length > 0) callback(undefined, dirs)
+    else callback(true)
 }
 
 let spinner = ora('Getting files list').start();
@@ -55,7 +59,7 @@ getDirectories(path.resolve(argv.res), (err, res) => {
             spinner = ora('Making backup to \"' + backupFolder + '"').start();
             fse.copySync(argv.res, backupFolder)
             spinner.succeed()
-        }Ы
+        }
 
         spinner = ora('Compiling files').start(); //TODO rollback everything on error, if backup
         Promise.all(files.map(file => {
