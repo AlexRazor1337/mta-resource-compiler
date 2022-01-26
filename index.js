@@ -14,14 +14,14 @@ const argv = yargs(hideBin(process.argv))
     describe: 'Resource folder path',
     type: 'string',
     coerce: arg =>
-    arg && fs.existsSync(path.resolve(__dirname, arg)) && fs.lstatSync(path.resolve(__dirname, arg)).isDirectory() ? arg : undefined
+    arg && fs.existsSync(path.resolve(arg)) && fs.lstatSync(path.resolve(arg)).isDirectory() ? arg : undefined
 })
 .options('backup', {
     alias: 'b',
     describe: 'Backup folder for resources',
     type: 'string',
     coerce: arg =>
-    arg && fs.existsSync(path.resolve(__dirname, arg)) && fs.lstatSync(path.resolve(__dirname, arg)).isDirectory() ? arg : undefined
+    arg && fs.existsSync(path.resolve(arg)) && fs.lstatSync(path.resolve(arg)).isDirectory() ? arg : undefined
 })
 .options('level', {
     alias: 'l',
@@ -43,11 +43,11 @@ const getDirectories = (src, callback) => {
 }
 
 let spinner = ora('Getting files list').start();
-getDirectories(argv.res, (err, res) => {
+getDirectories(path.resolve(argv.res), (err, res) => {
     if (err) {
         spinner.fail('Something went wrong!')
     } else {
-        const files = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && path.extname(element) == '.lua')
+        const files = res.filter(element => fs.lstatSync(path.resolve(element)).isFile() && path.extname(element) == '.lua')
         spinner.succeed()
 
         if (argv.backup) {
@@ -55,7 +55,7 @@ getDirectories(argv.res, (err, res) => {
             spinner = ora('Making backup to \"' + backupFolder + '"').start();
             fse.copySync(argv.res, backupFolder)
             spinner.succeed()
-        }
+        }Ы
 
         spinner = ora('Compiling files').start(); //TODO rollback everything on error, if backup
         Promise.all(files.map(file => {
@@ -70,7 +70,7 @@ getDirectories(argv.res, (err, res) => {
         })).then(() => spinner.succeed())
 
         const metaSpinner = ora('Editing meta.xml').start();
-        const meta = res.filter(element => fs.lstatSync(path.resolve(__dirname, element)).isFile() && element.includes('meta.xml'))[0]
+        const meta = res.filter(element => fs.lstatSync(path.resolve(element)).isFile() && element.includes('meta.xml'))[0]
         let data = fs.promises.readFile(meta).then(data => {
             fs.promises.writeFile(meta, data.toString('utf8').replace(/.lua/g, '.luac'), { flag: 'w+' }).then(() => {
                 metaSpinner.succeed()
