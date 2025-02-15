@@ -7,6 +7,8 @@ import path from 'node:path';
 import ora from 'ora';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const CONFIG = {
   VALID_LEVELS: ['1', '2', '3'],
@@ -34,7 +36,7 @@ const parseArguments = () => {
         coerce: validateOrCreateBackupDirectory,  // Changed this line
       },
       level: {
-        alias: 'l',
+        alias: 'e',
         describe: 'Obfuscation level',
         type: 'string',
         coerce: (arg) => CONFIG.VALID_LEVELS.includes(arg) ? arg : undefined,
@@ -45,8 +47,14 @@ const parseArguments = () => {
         describe: 'Delete original files, works only with the backup flag',
         type: 'boolean',
       },
+      local: {
+        alias: 'l',
+        describe: 'Use local compilation instead of API',
+        type: 'boolean',
+        default: false,
+      },
     })
-    .demandOption(['res'], 'Incorrect or no resource folder selected!')
+    .demandOption(['r'], 'Incorrect or no resource folder selected!')
     .parse();
 };
 
@@ -105,15 +113,39 @@ const createBackup = async (sourcePath, backupBasePath) => {
   }
 };
 
-const compileLuaFile = async (filePath, obfuscationLevel) => {
-  const fileContent = await fs.readFile(filePath);
-  const response = await axios.post(
-    `${CONFIG.LUA_COMPILE_URL}?compile=1&debug=0&obfuscate=${obfuscationLevel}`,
-    fileContent
-  );
-  const compiledPath = `${filePath}c`;
-  await fs.writeFile(compiledPath, response.data);
-  return compiledPath;
+const compileLuaFile = async (filePath, obfuscationLevel, useLocal) => {
+    const fileBasename = path.basename(filePath, CONFIG.FILE_EXTENSION);
+    const compiledPath = `${filePath}c`;
+    if (useLocal) {
+      const levelArgMapping = {
+        '3': 'e',
+        '2': 'e2',
+        '3': 'e3',
+      }
+      const workingDir = fileURLToPath(import.meta.url); // Convert to normal path
+      const exePath = path.join(path.dirname(workingDir), 'luac_mta.exe');
+      const args = [`-${levelArgMapping[obfuscationLevel]}`, `-o`, compiledPath, '--', filePath];
+      const process = spawn(exePath, args, { stdio: 'inherit' });
+      return new Promise((resolve, reject) => {
+        process.on('close', (code) => {
+          if (code === 0) resolve(compiledPath);
+          else reject(new Error(`Local compilation failed for ${filePath}`));
+        });
+      });
+    } else {
+      const fileContent = await fs.readFile(filePath);
+      const response = await axios.post(
+        `${CONFIG.LUA_COMPILE_URL}?compile=1&debug=0&obfuscate=${obfuscationLevel}`,
+        fileContent
+      );
+      const compiledPath = `${filePath}c`;
+
+      const buffer = Buffer.from(response.data);
+      await fs.writeFile(compiledPath, buffer, 'utf8', {
+        bufferEncoding: 'utf8',
+      });
+      return compiledPath;
+    }
 };
 
 const updateMetaXml = async (metaPath) => {
@@ -134,8 +166,13 @@ const updateMetaXml = async (metaPath) => {
 
 const main = async () => {
   const argv = parseArguments();
-  const mainSpinner = ora('Processing files...').start();
 
+  if (!argv.local) {
+    throw new Error('Only local compilation is supported for now');
+  }
+
+  const mainSpinner = ora('Processing files...').start();
+  let backupFolderName
   try {
     // Get all files in the directory
     const files = await getDirectories(argv.res);
@@ -143,7 +180,7 @@ const main = async () => {
 
     // Create backup if requested
     if (argv.backup) {
-      await createBackup(argv.res, argv.backup);
+      backupFolderName = await createBackup(argv.res, argv.backup);
     }
 
     // Filter and process Lua files
@@ -152,13 +189,12 @@ const main = async () => {
         lstatSync(file).isFile() && 
         path.extname(file) === CONFIG.FILE_EXTENSION
     );
-
     // Compile files
     const compileSpinner = ora('Compiling files').start();
     try {
       await Promise.all(
         luaFiles.map(async (file) => {
-          await compileLuaFile(file, argv.level);
+          await compileLuaFile(file, argv.level, argv.local);
           if (argv.backup && argv.del) {
             await fsExtra.remove(file);
           }
@@ -183,7 +219,7 @@ const main = async () => {
     if (argv.backup) {
       try {
         await fsExtra.remove(argv.res);
-        await fsExtra.move(argv.backup, argv.res);
+        await fsExtra.move(backupFolderName, argv.res);
       } catch (rollbackError) {
         console.error(`Rollback failed: ${rollbackError.message}`);
       }

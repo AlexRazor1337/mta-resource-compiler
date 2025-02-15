@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "download": "powershell -Command \"(New-Object Net.WebClient).DownloadFile('http://luac.mtasa.com/files/windows/x86/luac_mta.exe', 'luac_mta.exe')\""
   },
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
   "dependencies": {
     "axios": "^0.24.0",
     "fast-glob": "^3.3.3",
+    "form-data": "^4.0.1",
     "fs-extra": "^10.1.0",
     "ora": "^5.4.1",
     "yargs": "^17.7.2"
