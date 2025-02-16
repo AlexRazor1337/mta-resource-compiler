@@ -1,4 +1,3 @@
-import axios from 'axios';
 import fastGlob from 'fast-glob';
 import fsExtra from 'fs-extra';
 import { existsSync, lstatSync } from 'node:fs';
@@ -13,7 +12,6 @@ import { fileURLToPath } from 'node:url';
 const CONFIG = {
   VALID_LEVELS: ['1', '2', '3'],
   DEFAULT_LEVEL: '3',
-  LUA_COMPILE_URL: 'https://luac.mtasa.com/',
   FILE_EXTENSION: '.lua',
   COMPILED_EXTENSION: '.luac',
 };
@@ -46,12 +44,6 @@ const parseArguments = () => {
         alias: 'd',
         describe: 'Delete original files, works only with the backup flag',
         type: 'boolean',
-      },
-      local: {
-        alias: 'l',
-        describe: 'Use local compilation instead of API',
-        type: 'boolean',
-        default: false,
       },
     })
     .demandOption(['r'], 'Incorrect or no resource folder selected!')
@@ -113,39 +105,23 @@ const createBackup = async (sourcePath, backupBasePath) => {
   }
 };
 
-const compileLuaFile = async (filePath, obfuscationLevel, useLocal) => {
-    const fileBasename = path.basename(filePath, CONFIG.FILE_EXTENSION);
-    const compiledPath = `${filePath}c`;
-    if (useLocal) {
-      const levelArgMapping = {
-        '3': 'e',
-        '2': 'e2',
-        '3': 'e3',
-      }
-      const workingDir = fileURLToPath(import.meta.url); // Convert to normal path
-      const exePath = path.join(path.dirname(workingDir), 'luac_mta');
-      const args = [`-${levelArgMapping[obfuscationLevel]}`, `-o`, compiledPath, '--', filePath];
-      const process = spawn(exePath, args, { stdio: 'inherit' });
-      return new Promise((resolve, reject) => {
-        process.on('close', (code) => {
-          if (code === 0) resolve(compiledPath);
-          else reject(new Error(`Local compilation failed for ${filePath}`));
-        });
-      });
-    } else {
-      const fileContent = await fs.readFile(filePath);
-      const response = await axios.post(
-        `${CONFIG.LUA_COMPILE_URL}?compile=1&debug=0&obfuscate=${obfuscationLevel}`,
-        fileContent
-      );
-      const compiledPath = `${filePath}c`;
-
-      const buffer = Buffer.from(response.data);
-      await fs.writeFile(compiledPath, buffer, 'utf8', {
-        bufferEncoding: 'utf8',
-      });
-      return compiledPath;
-    }
+const compileLuaFile = async (filePath, obfuscationLevel) => {
+  const compiledPath = `${filePath}c`;
+  const levelArgMapping = {
+    '3': 'e',
+    '2': 'e2',
+    '3': 'e3',
+  }
+  const workingDir = fileURLToPath(import.meta.url); // Convert to normal path
+  const exePath = path.join(path.dirname(workingDir), 'luac_mta');
+  const args = [`-${levelArgMapping[obfuscationLevel]}`, `-o`, compiledPath, '--', filePath];
+  const process = spawn(exePath, args, { stdio: 'inherit' });
+  return new Promise((resolve, reject) => {
+    process.on('close', (code) => {
+      if (code === 0) resolve(compiledPath);
+      else reject(new Error(`Local compilation failed for ${filePath}`));
+    });
+  });
 };
 
 const updateMetaXml = async (metaPath) => {
@@ -166,10 +142,6 @@ const updateMetaXml = async (metaPath) => {
 
 const main = async () => {
   const argv = parseArguments();
-
-  if (!argv.local) {
-    throw new Error('Only local compilation is supported for now');
-  }
 
   const mainSpinner = ora('Processing files...').start();
   let backupFolderName
@@ -194,7 +166,7 @@ const main = async () => {
     try {
       await Promise.all(
         luaFiles.map(async (file) => {
-          await compileLuaFile(file, argv.level, argv.local);
+          await compileLuaFile(file, argv.level);
           if (argv.backup && argv.del) {
             await fsExtra.remove(file);
           }
