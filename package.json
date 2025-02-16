@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "download": "powershell -Command \"(New-Object Net.WebClient).DownloadFile('http://luac.mtasa.com/files/windows/x86/luac_mta.exe', 'luac_mta.exe')\""
+    "download": "powershell -Command \"(New-Object Net.WebClient).DownloadFile('http://luac.mtasa.com/files/windows/x86/luac_mta', 'luac_mta')\"",
+    "download-linux": "curl -o luac_mta https://luac.mtasa.com/files/linux/x64/luac_mta && chmod +x luac_mta"
   },
   "repository": {
     "type": "git",

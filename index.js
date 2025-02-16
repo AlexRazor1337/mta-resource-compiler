@@ -123,7 +123,7 @@ const compileLuaFile = async (filePath, obfuscationLevel, useLocal) => {
         '3': 'e3',
       }
       const workingDir = fileURLToPath(import.meta.url); // Convert to normal path
-      const exePath = path.join(path.dirname(workingDir), 'luac_mta.exe');
+      const exePath = path.join(path.dirname(workingDir), 'luac_mta');
       const args = [`-${levelArgMapping[obfuscationLevel]}`, `-o`, compiledPath, '--', filePath];
       const process = spawn(exePath, args, { stdio: 'inherit' });
       return new Promise((resolve, reject) => {
